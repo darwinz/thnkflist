@@ -1,6 +1,5 @@
+import { useCallback, useEffect, useReducer, useState } from "react";
 import api from "../api/api";
-import { Server } from "../utils/config";
-import { useEffect, useReducer } from "react";
 
 export const FetchState = {
   FETCH_INIT: 0,
@@ -8,8 +7,8 @@ export const FetchState = {
   FETCH_FAILURE: 2,
 };
 
-export const useGetAppreciations = (stale) => {
-  const reducer = (state, action) => {
+function fetchReducer(key) {
+  return (state, action) => {
     switch (action.type) {
       case FetchState.FETCH_INIT:
         return { ...state, isLoading: true, isError: false };
@@ -18,137 +17,186 @@ export const useGetAppreciations = (stale) => {
           ...state,
           isLoading: false,
           isError: false,
-          appreciations: action.payload,
+          [key]: action.payload,
         };
       case FetchState.FETCH_FAILURE:
         return { ...state, isLoading: false, isError: true };
       default:
-        throw new Error();
+        return state;
     }
   };
+}
 
-  const [state, dispatch] = useReducer(reducer, {
-    isLoading: false,
+// ── user/session ────────────────────────────────────────────────────────
+export const useUser = () => {
+  const [state, dispatch] = useReducer(fetchReducer("user"), {
+    isLoading: true,
     isError: false,
-    appreciations: [],
+    user: null,
   });
 
   useEffect(() => {
-    let didCancel = false;
-    const getAppreciations = async () => {
+    let cancelled = false;
+    (async () => {
       dispatch({ type: FetchState.FETCH_INIT });
       try {
-        const data = await api.listDocuments(Server.collectionID)
-            .then(documents => documents, error => console.log(error));
-        if (!didCancel) {
-          dispatch({ type: FetchState.FETCH_SUCCESS, payload: data.documents });
-        }
-      } catch (e) {
-        if (!didCancel) {
-          dispatch({ type: FetchState.FETCH_FAILURE });
-        }
-      }
-    };
-    getAppreciations();
-    return () => (didCancel = true);
-  }, [stale]);
-
-  return [state];
-};
-
-
-export const useGetMostRecentAppreciation = (stale) => {
-  const reducer = (state, action) => {
-    switch (action.type) {
-      case FetchState.FETCH_INIT:
-        return { ...state, isLoading: true, isError: false };
-      case FetchState.FETCH_SUCCESS:
-        return {
-          ...state,
-          isLoading: false,
-          isError: false,
-          appreciations: action.payload,
-        };
-      case FetchState.FETCH_FAILURE:
-        return { ...state, isLoading: false, isError: true };
-      default:
-        throw new Error();
-    }
-  };
-
-  const [state, dispatch] = useReducer(reducer, {
-    isLoading: false,
-    isError: false,
-    appreciations: [],
-  });
-
-  useEffect(() => {
-    let didCancel = false;
-    const getMostRecentAppreciation = async () => {
-      dispatch({ type: FetchState.FETCH_INIT });
-      try {
-        const data = await api.getMostRecentDocument(Server.collectionID)
-          .then(document => document, error => console.log(error));
-        if (!didCancel) {
-          dispatch({ type: FetchState.FETCH_SUCCESS, payload: data.documents });
-        }
-      } catch (e) {
-        if (!didCancel) {
-          dispatch({ type: FetchState.FETCH_FAILURE });
-        }
-      }
-    };
-    getMostRecentAppreciation();
-    return () => (didCancel = true);
-  }, [stale]);
-
-  return [state];
-};
-
-export const useGetUser = () => {
-  const reducer = (state, action) => {
-    switch (action.type) {
-      case FetchState.FETCH_INIT:
-        return { ...state, isLoading: true, isError: false };
-      case FetchState.FETCH_SUCCESS:
-        return {
-          ...state,
-          isLoading: false,
-          isError: false,
-          user: action.payload,
-        };
-      case FetchState.FETCH_FAILURE:
-        return { ...state, isLoading: false, isError: true };
-      default:
-        throw new Error();
-    }
-  };
-
-  const [state, dispatch] = useReducer(reducer, {
-    isLoading: false,
-    isError: true,
-    data: [],
-  });
-
-  useEffect(() => {
-    let didCancel = false;
-    const getAppreciations = async () => {
-      dispatch({ type: FetchState.FETCH_INIT });
-      try {
-        const account = await api.getAccount()
-          .then(account => account, error => console.log(error));
-        if (!didCancel) {
+        const account = await api.getAccount();
+        if (!cancelled)
           dispatch({ type: FetchState.FETCH_SUCCESS, payload: account });
-        }
-      } catch (e) {
-        if (!didCancel) {
-          dispatch({ type: FetchState.FETCH_FAILURE });
-        }
+      } catch {
+        if (!cancelled)
+          dispatch({ type: FetchState.FETCH_SUCCESS, payload: null });
       }
+    })();
+    return () => {
+      cancelled = true;
     };
-    getAppreciations();
-    return () => (didCancel = true);
   }, []);
 
   return [state, dispatch];
+};
+
+// ── all user's lists (history) ──────────────────────────────────────────
+export const useLists = (userId) => {
+  const [state, dispatch] = useReducer(fetchReducer("lists"), {
+    isLoading: false,
+    isError: false,
+    lists: [],
+  });
+  const [bump, setBump] = useState(0);
+  const refresh = useCallback(() => setBump((n) => n + 1), []);
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    (async () => {
+      dispatch({ type: FetchState.FETCH_INIT });
+      try {
+        const docs = await api.listAllListsForUser(userId);
+        if (!cancelled)
+          dispatch({ type: FetchState.FETCH_SUCCESS, payload: docs });
+      } catch (e) {
+        if (!cancelled) dispatch({ type: FetchState.FETCH_FAILURE });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, bump]);
+
+  return [state, refresh];
+};
+
+// ── single list + its items ─────────────────────────────────────────────
+export const useList = (listId) => {
+  const [state, setState] = useState({
+    isLoading: false,
+    isError: false,
+    list: null,
+    items: [],
+  });
+  const [bump, setBump] = useState(0);
+  const refresh = useCallback(() => setBump((n) => n + 1), []);
+
+  useEffect(() => {
+    if (!listId) {
+      setState({ isLoading: false, isError: false, list: null, items: [] });
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setState((s) => ({ ...s, isLoading: true, isError: false }));
+      try {
+        const [list, items] = await Promise.all([
+          api.getList(listId),
+          api.listItems(listId),
+        ]);
+        if (cancelled) return;
+        setState({
+          isLoading: false,
+          isError: false,
+          list,
+          items: items.documents,
+        });
+      } catch {
+        if (!cancelled)
+          setState((s) => ({ ...s, isLoading: false, isError: true }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [listId, bump]);
+
+  return [state, refresh];
+};
+
+// ── newest list (for "current list" convenience) ────────────────────────
+export const useCurrentList = (userId) => {
+  const [state, setState] = useState({
+    isLoading: true,
+    isError: false,
+    currentListId: null,
+  });
+  const [bump, setBump] = useState(0);
+  const refresh = useCallback(() => setBump((n) => n + 1), []);
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    (async () => {
+      setState((s) => ({ ...s, isLoading: true, isError: false }));
+      try {
+        const page = await api.listLists(userId, { limit: 1 });
+        if (cancelled) return;
+        setState({
+          isLoading: false,
+          isError: false,
+          currentListId: page.documents[0]?.$id ?? null,
+        });
+      } catch {
+        if (!cancelled)
+          setState((s) => ({ ...s, isLoading: false, isError: true }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, bump]);
+
+  return [state, refresh];
+};
+
+// ── analytics source: every list + item for the user ────────────────────
+export const useStats = (userId) => {
+  const [state, setState] = useState({
+    isLoading: true,
+    isError: false,
+    lists: [],
+    items: [],
+  });
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    (async () => {
+      setState((s) => ({ ...s, isLoading: true, isError: false }));
+      try {
+        const [lists, items] = await Promise.all([
+          api.listAllListsForUser(userId),
+          api.listAllItemsForUser(userId),
+        ]);
+        if (!cancelled)
+          setState({ isLoading: false, isError: false, lists, items });
+      } catch {
+        if (!cancelled)
+          setState((s) => ({ ...s, isLoading: false, isError: true }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  return [state];
 };
