@@ -1,4 +1,122 @@
 {
-    "projectId": "63c3bdd64d46326192d9",
-    "projectName": "Thnkfl App"
+    "projectId": "67f8c1a49d30432fc2c9",
+    "projectName": "Thnkflist",
+    "databases": [
+        {
+            "$id": "67f8c746002b058ce729",
+            "name": "Thnkflist Database",
+            "enabled": true
+        }
+    ],
+    "collections": [
+        {
+            "$id": "lists",
+            "$permissions": [
+                "create(\"users\")"
+            ],
+            "databaseId": "67f8c746002b058ce729",
+            "name": "Lists",
+            "enabled": true,
+            "documentSecurity": true,
+            "attributes": [
+                {
+                    "key": "userId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 64
+                },
+                {
+                    "key": "title",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 120,
+                    "default": null
+                },
+                {
+                    "key": "note",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 1000,
+                    "default": null
+                },
+                {
+                    "key": "mood",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 40,
+                    "default": null
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "userId",
+                    "type": "key",
+                    "status": "available",
+                    "attributes": ["userId"],
+                    "orders": ["ASC"]
+                }
+            ]
+        },
+        {
+            "$id": "items",
+            "$permissions": [
+                "create(\"users\")"
+            ],
+            "databaseId": "67f8c746002b058ce729",
+            "name": "Items",
+            "enabled": true,
+            "documentSecurity": true,
+            "attributes": [
+                {
+                    "key": "listId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 64
+                },
+                {
+                    "key": "userId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 64
+                },
+                {
+                    "key": "content",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 500
+                },
+                {
+                    "key": "position",
+                    "type": "integer",
+                    "required": true,
+                    "array": false,
+                    "min": 0,
+                    "max": 1000000
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "listId_position",
+                    "type": "key",
+                    "status": "available",
+                    "attributes": ["listId", "position"],
+                    "orders": ["ASC", "ASC"]
+                },
+                {
+                    "key": "userId",
+                    "type": "key",
+                    "status": "available",
+                    "attributes": ["userId"],
+                    "orders": ["ASC"]
+                }
+            ]
+        }
+    ]
 }
