@@ -26,33 +26,43 @@ set -euo pipefail
 here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 cd "$here"
 
-# Load .env.local if it exists so APPWRITE_API_KEY / overrides just work.
-if [[ -f .env.local ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source .env.local
-  set +a
-fi
-
 ENV="${1:-}"
 case "$ENV" in
-  dev)
-    ENDPOINT="${THNKFLIST_DEV_ENDPOINT:-https://fra.cloud.appwrite.io/v1}"
-    PROJECT="${THNKFLIST_DEV_PROJECT:-64d8612349bc9c61e154}"
-    ;;
-  prod)
-    ENDPOINT="${THNKFLIST_PROD_ENDPOINT:-https://fra.cloud.appwrite.io/v1}"
-    PROJECT="${THNKFLIST_PROD_PROJECT:-}"
-    if [[ -z "$PROJECT" ]]; then
-      echo "error: set THNKFLIST_PROD_PROJECT to your prod Appwrite project ID" >&2
-      exit 2
-    fi
-    ;;
-  *)
-    echo "usage: $0 <dev|prod>" >&2
-    exit 2
-    ;;
+  dev|prod) ;;
+  *) echo "usage: $0 <dev|prod>" >&2; exit 2 ;;
 esac
+
+ENV_FILE=".env.$ENV"
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "error: $ENV_FILE not found." >&2
+  echo "       copy it from $ENV_FILE.example and fill in real values." >&2
+  exit 1
+fi
+
+# Source .env.local first (secrets / personal overrides), then the env-specific
+# file. Values in .env.<env> take precedence over .env.local. This makes the
+# committed .env.<env> the source of truth for project ID + endpoint — no
+# duplication into the shell.
+set -a
+# shellcheck disable=SC1090,SC1091
+[[ -f .env.local ]] && source .env.local
+# shellcheck disable=SC1090,SC1091
+source "$ENV_FILE"
+set +a
+
+# Allow THNKFLIST_{DEV,PROD}_{PROJECT,ENDPOINT} to override the .env.<env>
+# values when you need to temporarily target a different project (rare).
+UP_ENV="$(echo "$ENV" | tr '[:lower:]' '[:upper:]')"
+ENDPOINT_VAR="THNKFLIST_${UP_ENV}_ENDPOINT"
+PROJECT_VAR="THNKFLIST_${UP_ENV}_PROJECT"
+ENDPOINT="${!ENDPOINT_VAR:-${REACT_APP_ENDPOINT:-}}"
+PROJECT="${!PROJECT_VAR:-${REACT_APP_PROJECT:-}}"
+
+if [[ -z "$ENDPOINT" || -z "$PROJECT" ]]; then
+  echo "error: couldn't resolve endpoint + project for '$ENV'." >&2
+  echo "       check that $ENV_FILE has REACT_APP_ENDPOINT and REACT_APP_PROJECT set." >&2
+  exit 1
+fi
 
 if ! command -v appwrite >/dev/null 2>&1; then
   echo "error: appwrite CLI not found. install with: npm i -g appwrite-cli" >&2
@@ -88,23 +98,37 @@ jq --arg pid "$PROJECT" '.projectId = $pid' appwrite.json > "$tmp"
 mv "$tmp" appwrite.json
 
 if [[ -n "${APPWRITE_API_KEY:-}" ]]; then
-  # API-key path: pass credentials via env so we don't mutate ~/.appwrite/prefs.json.
-  export APPWRITE_ENDPOINT="$ENDPOINT"
-  export APPWRITE_PROJECT_ID="$PROJECT"
+  # API-key path. The CLI reads endpoint/project/cookie from
+  # ~/.appwrite/prefs.json, so setting APPWRITE_ENDPOINT as an env var isn't
+  # enough — it will silently use whatever endpoint is in the active session
+  # (e.g. fra from a previous dev login), which fails against an sfo project.
+  #
+  # Isolate the CLI by pointing HOME at a scratch dir, then populate the CLI
+  # config with the correct endpoint + project + key for this push. The real
+  # ~/.appwrite/prefs.json is never touched.
+  APPWRITE_SANDBOX="$(mktemp -d)"
+  trap 'mv "$backup" appwrite.json; rm -rf "$APPWRITE_SANDBOX"' EXIT
+  export HOME="$APPWRITE_SANDBOX"
+  appwrite client \
+    --endpoint "$ENDPOINT" \
+    --project-id "$PROJECT" \
+    --key "$APPWRITE_API_KEY" >/dev/null
 else
   # Session path: rely on existing `appwrite login`. Verify it first so we
-  # fail with a readable error instead of "session not found" mid-push.
+  # fail with a readable error instead of "session not found" mid-push. Also
+  # confirm the session's endpoint matches what we expect for this env — a
+  # session logged in against fra can't push to an sfo project.
   if ! appwrite account get >/dev/null 2>&1; then
     cat >&2 <<'EOF'
 error: no working Appwrite CLI session found.
 
 Either:
-  (a) run `appwrite login` first (against https://fra.cloud.appwrite.io/v1), or
+  (a) run `appwrite login` first against the right region, or
   (b) create an API key in the Appwrite Cloud console (Project → Integrations
       → API keys) and export it:
 
         export APPWRITE_API_KEY=<your-api-key>
-        ./setup-appwrite.sh dev
+        ./setup-appwrite.sh prod
 
       (or drop APPWRITE_API_KEY=... into .env.local)
 EOF

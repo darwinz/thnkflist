@@ -74,6 +74,7 @@ typings/
 .env.local
 .env.development
 .env.production
+.env.prod
 .env.development.local
 .env.production.local
 # Commit the *.example templates so fresh clones have a starter config.

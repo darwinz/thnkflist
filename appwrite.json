@@ -1,5 +1,5 @@
 {
-    "projectId": "64d8612349bc9c61e154",
+    "projectId": "69e17e73000aaa1e526a",
     "projectName": "Thnkflist",
     "databases": [
         {
@@ -57,8 +57,12 @@
                     "key": "userId",
                     "type": "key",
                     "status": "available",
-                    "attributes": ["userId"],
-                    "orders": ["ASC"]
+                    "attributes": [
+                        "userId"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
                 }
             ]
         },
@@ -111,15 +115,25 @@
                     "key": "listId_position",
                     "type": "key",
                     "status": "available",
-                    "attributes": ["listId", "position"],
-                    "orders": ["ASC", "ASC"]
+                    "attributes": [
+                        "listId",
+                        "position"
+                    ],
+                    "orders": [
+                        "ASC",
+                        "ASC"
+                    ]
                 },
                 {
                     "key": "userId",
                     "type": "key",
                     "status": "available",
-                    "attributes": ["userId"],
-                    "orders": ["ASC"]
+                    "attributes": [
+                        "userId"
+                    ],
+                    "orders": [
+                        "ASC"
+                    ]
                 }
             ]
         }

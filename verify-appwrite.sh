@@ -14,32 +14,37 @@ set -euo pipefail
 here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 cd "$here"
 
-if [[ -f .env.local ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source .env.local
-  set +a
-fi
-
 ENV="${1:-}"
 case "$ENV" in
-  dev)
-    ENDPOINT="${THNKFLIST_DEV_ENDPOINT:-https://fra.cloud.appwrite.io/v1}"
-    PROJECT="${THNKFLIST_DEV_PROJECT:-64d8612349bc9c61e154}"
-    ;;
-  prod)
-    ENDPOINT="${THNKFLIST_PROD_ENDPOINT:-https://fra.cloud.appwrite.io/v1}"
-    PROJECT="${THNKFLIST_PROD_PROJECT:-}"
-    if [[ -z "$PROJECT" ]]; then
-      echo "error: set THNKFLIST_PROD_PROJECT to your prod Appwrite project ID" >&2
-      exit 2
-    fi
-    ;;
-  *)
-    echo "usage: $0 <dev|prod>" >&2
-    exit 2
-    ;;
+  dev|prod) ;;
+  *) echo "usage: $0 <dev|prod>" >&2; exit 2 ;;
 esac
+
+ENV_FILE=".env.$ENV"
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "error: $ENV_FILE not found." >&2
+  echo "       copy it from $ENV_FILE.example and fill in real values." >&2
+  exit 1
+fi
+
+set -a
+# shellcheck disable=SC1090,SC1091
+[[ -f .env.local ]] && source .env.local
+# shellcheck disable=SC1090,SC1091
+source "$ENV_FILE"
+set +a
+
+UP_ENV="$(echo "$ENV" | tr '[:lower:]' '[:upper:]')"
+ENDPOINT_VAR="THNKFLIST_${UP_ENV}_ENDPOINT"
+PROJECT_VAR="THNKFLIST_${UP_ENV}_PROJECT"
+ENDPOINT="${!ENDPOINT_VAR:-${REACT_APP_ENDPOINT:-}}"
+PROJECT="${!PROJECT_VAR:-${REACT_APP_PROJECT:-}}"
+
+if [[ -z "$ENDPOINT" || -z "$PROJECT" ]]; then
+  echo "error: couldn't resolve endpoint + project for '$ENV'." >&2
+  echo "       check that $ENV_FILE has REACT_APP_ENDPOINT and REACT_APP_PROJECT set." >&2
+  exit 1
+fi
 
 if ! command -v appwrite >/dev/null 2>&1; then
   echo "error: appwrite CLI not found. install with: npm i -g appwrite-cli" >&2
@@ -48,14 +53,23 @@ fi
 
 DB="thnkflist"
 
+# If an API key is available, isolate the CLI in a scratch HOME with the right
+# endpoint/project/key so we don't depend on whatever session ~/.appwrite has.
 if [[ -n "${APPWRITE_API_KEY:-}" ]]; then
-  export APPWRITE_ENDPOINT="$ENDPOINT"
-  export APPWRITE_PROJECT_ID="$PROJECT"
+  APPWRITE_SANDBOX="$(mktemp -d)"
+  trap 'rm -rf "$APPWRITE_SANDBOX"' EXIT
+  export HOME="$APPWRITE_SANDBOX"
+  appwrite client \
+    --endpoint "$ENDPOINT" \
+    --project-id "$PROJECT" \
+    --key "$APPWRITE_API_KEY" >/dev/null
 fi
 
-echo "==> project: $PROJECT ($ENV @ $ENDPOINT)"
-appwrite projects get --project-id "$PROJECT" >/dev/null
-echo "    ok."
+echo "==> target: $PROJECT ($ENV @ $ENDPOINT)"
+
+# NOTE: `appwrite projects get` is a console endpoint — API keys can't hit it.
+# We confirm the project indirectly by successfully reading one of its
+# databases, which is in an API key's reachable scope.
 
 echo "==> database: $DB"
 appwrite databases get --database-id "$DB" >/dev/null
