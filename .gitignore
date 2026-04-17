@@ -72,8 +72,12 @@ typings/
 .env
 .env.test
 .env.local
+.env.development
+.env.production
 .env.development.local
 .env.production.local
+# Commit the *.example templates so fresh clones have a starter config.
+!.env.*.example
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
