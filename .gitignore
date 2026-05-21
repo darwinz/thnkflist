@@ -117,3 +117,7 @@ yarn.lock
 tags
 
 .vercel
+
+# Local-only tooling state (Claude Code settings, playwright-cli snapshots)
+.claude/
+.playwright-cli/
