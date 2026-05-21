@@ -6,16 +6,8 @@ jest.mock("../../hooks", () => {
   const actual = jest.requireActual("../../hooks");
   return {
     ...actual,
-    useLists: () => [
-      { isLoading: false, isError: false, lists: [] },
-      jest.fn(),
-    ],
-    useCurrentList: () => [
-      { isLoading: false, isError: false, currentListId: null },
-      jest.fn(),
-    ],
-    useList: () => [
-      { isLoading: false, isError: false, list: null, items: [] },
+    useDashboard: () => [
+      { isLoading: false, isError: false, lists: [], itemsByListId: {} },
       jest.fn(),
     ],
   };
@@ -25,6 +17,7 @@ jest.mock("../../api/api", () => ({
   __esModule: true,
   default: {
     deleteCurrentSession: jest.fn(),
+    createList: jest.fn(),
   },
 }));
 
@@ -40,7 +33,8 @@ test("shows the empty state when the user has no lists", () => {
     </MemoryRouter>,
   );
 
-  expect(screen.getByText(/start your first list/i)).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: /thnkflist/i })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: /stats/i })).toBeInTheDocument();
+  expect(screen.getByText(/small things/i)).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: /start a new list/i }),
+  ).toBeInTheDocument();
 });

@@ -32,7 +32,10 @@ function App() {
           path="/lists/:listId"
           element={requireAuth(<List user={user} dispatch={dispatch} />)}
         />
-        <Route path="/stats" element={requireAuth(<Stats user={user} />)} />
+        <Route
+          path="/stats"
+          element={requireAuth(<Stats user={user} dispatch={dispatch} />)}
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

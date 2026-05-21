@@ -1,44 +1,136 @@
-function intensityClass(count) {
-  if (count === 0) return "bg-gray-100";
-  if (count === 1) return "bg-emerald-200";
-  if (count === 2) return "bg-emerald-300";
-  if (count <= 4) return "bg-emerald-500";
-  return "bg-emerald-700";
-}
+// 18-week × 7-day grid, oldest-first input. Intensity steps via color-mix
+// against the accent + paper-deep, so the heatmap repaints when the palette
+// changes — no manual color updates needed.
+
+const intensityColor = (count) => {
+  if (count === 0) return "var(--paper-deep)";
+  const pct = count === 1 ? 22 : count === 2 ? 45 : count <= 4 ? 70 : 100;
+  if (pct === 100) return "var(--accent)";
+  return `color-mix(in oklab, var(--accent) ${pct}%, var(--paper-deep))`;
+};
 
 const Heatmap = ({ cells }) => {
-  // cells come oldest-first; render as columns of 7 (one column per week).
+  // cells come oldest-first; render as columns of 7.
   const columns = [];
   for (let i = 0; i < cells.length; i += 7) {
     columns.push(cells.slice(i, i + 7));
   }
 
+  const now = new Date();
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+  // Pick month labels per column (label only when the month changes).
+  const monthLabels = columns.map((col, i) => {
+    const first = col[0];
+    if (!first) return "";
+    const [, m] = first.date.split("-");
+    const prevFirst = columns[i - 1]?.[0];
+    const prevM = prevFirst ? prevFirst.date.split("-")[1] : null;
+    if (prevM === m) return "";
+    return new Date(first.date + "T00:00:00")
+      .toLocaleDateString(undefined, { month: "short" })
+      .toLowerCase();
+  });
+
+  const dayLabels = ["s", "m", "t", "w", "t", "f", "s"];
+
   return (
-    <section>
-      <h2 className="text-lg font-semibold mb-3">Activity</h2>
-      <div className="flex gap-1 overflow-x-auto pb-2">
-        {columns.map((col, ci) => (
-          <div key={ci} className="flex flex-col gap-1">
-            {col.map((cell) => (
-              <div
-                key={cell.date}
-                title={`${cell.date}: ${cell.count} item${cell.count === 1 ? "" : "s"}`}
-                className={`w-3 h-3 rounded-sm ${intensityClass(cell.count)}`}
-              />
-            ))}
+    <div>
+      {/* month labels */}
+      <div
+        style={{
+          display: "flex",
+          gap: 4,
+          marginBottom: 6,
+          paddingLeft: 22,
+          font: "400 10px/1 var(--font-mono)",
+          color: "var(--ink-mute)",
+          letterSpacing: "0.04em",
+        }}
+      >
+        {monthLabels.map((m, i) => (
+          <div key={i} style={{ width: 14, flexShrink: 0 }}>
+            {m}
           </div>
         ))}
       </div>
-      <div className="flex items-center gap-2 mt-3 text-xs text-gray-500">
-        <span>Less</span>
-        <span className="w-3 h-3 rounded-sm bg-gray-100" />
-        <span className="w-3 h-3 rounded-sm bg-emerald-200" />
-        <span className="w-3 h-3 rounded-sm bg-emerald-300" />
-        <span className="w-3 h-3 rounded-sm bg-emerald-500" />
-        <span className="w-3 h-3 rounded-sm bg-emerald-700" />
-        <span>More</span>
+
+      <div style={{ display: "flex", gap: 4 }}>
+        {/* day-of-week column */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 4,
+            font: "400 9px/1 var(--font-mono)",
+            color: "var(--ink-mute)",
+            marginRight: 4,
+            width: 14,
+          }}
+        >
+          {dayLabels.map((d, i) => (
+            <div key={i} style={{ height: 14, display: "flex", alignItems: "center" }}>
+              {i % 2 === 1 ? d : ""}
+            </div>
+          ))}
+        </div>
+
+        {/* cells */}
+        {columns.map((col, ci) => (
+          <div key={ci} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {col.map((cell) => {
+              const isFuture = cell.date > todayKey;
+              return (
+                <div
+                  key={cell.date}
+                  title={`${cell.date} — ${cell.count} ${
+                    cell.count === 1 ? "list" : "lists"
+                  }`}
+                  style={{
+                    width: 14,
+                    height: 14,
+                    borderRadius: 3,
+                    border: isFuture
+                      ? "1px dashed var(--paper-edge)"
+                      : "1px solid var(--paper-edge)",
+                    background: isFuture ? "transparent" : intensityColor(cell.count),
+                    opacity: isFuture ? 0.35 : 1,
+                  }}
+                />
+              );
+            })}
+          </div>
+        ))}
       </div>
-    </section>
+
+      {/* legend */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          alignItems: "center",
+          gap: 6,
+          marginTop: 14,
+          font: "400 10px/1 var(--font-mono)",
+          color: "var(--ink-mute)",
+        }}
+      >
+        <span>less</span>
+        {[0, 1, 2, 3, 5].map((n) => (
+          <span
+            key={n}
+            style={{
+              width: 12,
+              height: 12,
+              borderRadius: 3,
+              border: "1px solid var(--paper-edge)",
+              background: intensityColor(n),
+            }}
+          />
+        ))}
+        <span>more</span>
+      </div>
+    </div>
   );
 };
 

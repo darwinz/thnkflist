@@ -1,76 +1,89 @@
-import { useState } from "react";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import api from "../../api/api";
-import {
-  FetchState,
-  useCurrentList,
-  useList,
-  useLists,
-} from "../../hooks";
-import Alert from "../Alert/Alert";
-import HistoryRail from "./HistoryRail";
-import ListHeader from "./ListHeader";
-import ListItem from "./ListItem";
-import ListItemInput from "./ListItemInput";
-import NewListButton from "./NewListButton";
+import { FetchState, useDashboard } from "../../hooks";
+import LayoutLibrary from "../../design/LayoutLibrary";
+import LayoutDesk from "../../design/LayoutDesk";
+import LayoutAlmanac from "../../design/LayoutAlmanac";
+import SettingsPanel from "../../design/SettingsPanel";
+import { useThemePrefs } from "../../design/theme";
 
-const TopNav = ({ onLogout }) => (
-  <header className="flex items-center justify-between px-4 md:px-6 py-3 border-b border-gray-100">
-    <Link to="/lists" className="text-xl font-bold tracking-tight">
-      Thnkflist
-    </Link>
-    <div className="flex items-center gap-3">
-      <Link
-        to="/stats"
-        className="text-sm font-medium text-gray-700 hover:text-gray-900"
+const EmptyState = ({ onCreate, prefs }) => (
+  <div
+    style={{
+      minHeight: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 24,
+      background: "var(--paper)",
+      textAlign: "center",
+    }}
+  >
+    <div style={{ maxWidth: 480 }}>
+      <h1
+        style={{
+          font: "300 56px/1.05 var(--font-serif)",
+          letterSpacing: "-0.03em",
+          color: "var(--ink)",
+          margin: 0,
+        }}
       >
-        Stats
-      </Link>
+        small things,
+        <br />
+        <span style={{ fontStyle: "italic", color: "var(--ink-soft)" }}>kept.</span>
+      </h1>
+      <p
+        style={{
+          font: "italic 400 15px/1.6 var(--font-serif)",
+          color: "var(--ink-soft)",
+          marginTop: 20,
+        }}
+      >
+        Start a new list to begin. Make as many as you like — one today, another
+        tomorrow, two an hour apart.
+      </p>
       <button
         type="button"
-        onClick={onLogout}
-        className="text-sm font-medium text-gray-700 hover:text-gray-900"
+        onClick={onCreate}
+        style={{
+          marginTop: 28,
+          font: "500 14px/1 var(--font-sans)",
+          padding: "12px 22px",
+          borderRadius: "var(--r-full)",
+          background: "var(--ink)",
+          color: "var(--paper)",
+          border: 0,
+          cursor: "pointer",
+        }}
       >
-        Log out
+        ＋ Start a new list
       </button>
+      <div style={{ marginTop: 24, font: "400 12px/1 var(--font-sans)", color: "var(--ink-mute)" }}>
+        layout: {prefs.layout}
+      </div>
     </div>
-  </header>
-);
-
-const EmptyState = ({ userId, onCreated }) => (
-  <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-16 gap-4">
-    <h1 className="text-3xl md:text-4xl font-semibold">
-      Start your first list
-    </h1>
-    <p className="text-gray-600 max-w-md">
-      A gratitude list is a short collection of things you're thankful for right
-      now. Make as many as you like — one today, another tomorrow, two an hour
-      apart.
-    </p>
-    <NewListButton userId={userId} onCreated={onCreated} />
   </div>
 );
 
 const List = ({ user, dispatch }) => {
+  const navigate = useNavigate();
   const { listId: paramListId } = useParams();
-  const [listsState, refreshLists] = useLists(user.$id);
-  const [currentState, refreshCurrent] = useCurrentList(user.$id);
+  const [{ isLoading, isError, lists, itemsByListId }, refresh] = useDashboard(user.$id);
+  const [prefs, setPrefs] = useThemePrefs();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
 
-  const listId = paramListId ?? currentState.currentListId;
-  const [detailState, refreshDetail] = useList(listId);
+  const selectedId = paramListId ?? lists[0]?.$id ?? null;
+  const selected = lists.find((l) => l.$id === selectedId) || null;
+  const items = selectedId ? itemsByListId[selectedId] ?? [] : [];
 
-  const [showHistory, setShowHistory] = useState(false);
-
-  // Preload item counts for the rail so each entry can show "(N)".
-  const itemsByListId = Object.fromEntries(
-    (listsState.lists ?? []).map((l) => [l.$id, undefined]),
-  );
-
-  const refreshAll = () => {
-    refreshLists();
-    refreshDetail();
-    refreshCurrent();
-  };
+  // If we navigated to /lists and a list exists, canonicalize the URL once.
+  useEffect(() => {
+    if (!paramListId && lists.length > 0) {
+      navigate(`/lists/${lists[0].$id}`, { replace: true });
+    }
+  }, [paramListId, lists, navigate]);
 
   const handleLogout = async () => {
     dispatch({ type: FetchState.FETCH_INIT });
@@ -82,131 +95,184 @@ const List = ({ user, dispatch }) => {
     }
   };
 
-  const handleDeleteList = async () => {
-    if (!detailState.list) return;
-    const ok = window.confirm("Delete this list and all its items?");
-    if (!ok) return;
-    await api.deleteList(detailState.list.$id);
-    refreshAll();
+  const handleNew = async () => {
+    if (creating) return;
+    setCreating(true);
+    try {
+      const list = await api.createList(user.$id);
+      refresh();
+      navigate(`/lists/${list.$id}`);
+    } catch (e) {
+      console.warn("create list failed", e);
+    } finally {
+      setCreating(false);
+    }
   };
 
-  const noLists =
-    !listsState.isLoading && (listsState.lists ?? []).length === 0;
+  const handleSelect = (id) => {
+    navigate(`/lists/${id}`);
+  };
 
-  const hasChosenList = Boolean(paramListId);
+  const handleShowStats = () => navigate("/stats");
 
-  // Canonicalize /lists to /lists/:currentListId once we know it.
-  if (
-    !hasChosenList &&
-    currentState.currentListId &&
-    currentState.currentListId !== listId
-  ) {
-    return <Navigate to={`/lists/${currentState.currentListId}`} replace />;
+  const updateList = async (patch) => {
+    if (!selectedId) return;
+    try {
+      await api.updateList(selectedId, patch);
+      refresh();
+    } catch (e) {
+      console.warn("list update failed", e);
+    }
+  };
+
+  const addItem = async (content) => {
+    if (!selectedId) return;
+    try {
+      await api.createItem(user.$id, selectedId, content);
+      refresh();
+    } catch (e) {
+      console.warn("add item failed", e);
+    }
+  };
+
+  const updateItem = async (itemId, content) => {
+    try {
+      await api.updateItem(itemId, { content });
+      refresh();
+    } catch (e) {
+      console.warn("item update failed", e);
+    }
+  };
+
+  const removeItem = async (itemId) => {
+    try {
+      await api.deleteItem(itemId);
+      refresh();
+    } catch (e) {
+      console.warn("item delete failed", e);
+    }
+  };
+
+  if (isLoading && lists.length === 0) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--paper)",
+        }}
+      >
+        <div style={{ font: "italic 400 14px/1 var(--font-serif)", color: "var(--ink-mute)" }}>
+          loading…
+        </div>
+      </div>
+    );
   }
 
-  return (
-    <div className="min-h-screen flex flex-col">
-      <TopNav onLogout={handleLogout} />
-
-      <div className="flex-1 flex">
-        {/* Center pane */}
-        <main className="flex-1 flex flex-col max-w-3xl mx-auto w-full px-4 md:px-8 py-8">
-          {listsState.isError && (
-            <Alert color="red" message="Couldn't load your lists." />
-          )}
-
-          {noLists ? (
-            <EmptyState userId={user.$id} onCreated={refreshAll} />
-          ) : !listId ? (
-            <div className="flex-1" />
-          ) : detailState.isError ? (
-            <Alert color="red" message="Couldn't load this list." />
-          ) : !detailState.list ? (
-            <div className="text-gray-500">Loading…</div>
-          ) : (
-            <>
-              <ListHeader list={detailState.list} onChange={refreshLists} />
-
-              <section className="mt-6">
-                <ListItemInput
-                  userId={user.$id}
-                  listId={detailState.list.$id}
-                  onAdded={refreshDetail}
-                />
-                <ul>
-                  {detailState.items.map((item) => (
-                    <ListItem
-                      key={item.$id}
-                      item={item}
-                      onChanged={refreshDetail}
-                    />
-                  ))}
-                </ul>
-              </section>
-
-              <div className="mt-10 flex items-center gap-3">
-                <NewListButton
-                  userId={user.$id}
-                  onCreated={refreshAll}
-                />
-                <button
-                  type="button"
-                  onClick={handleDeleteList}
-                  className="text-sm text-gray-500 hover:text-red-600"
-                >
-                  Delete this list
-                </button>
-              </div>
-            </>
-          )}
-
+  if (isError) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--paper)",
+          padding: 24,
+        }}
+      >
+        <div
+          style={{
+            font: "400 14px/1.5 var(--font-sans)",
+            color: "var(--ink-soft)",
+            textAlign: "center",
+          }}
+        >
+          Couldn't load your lists.
+          <br />
           <button
             type="button"
-            onClick={() => setShowHistory(true)}
-            className="md:hidden fixed bottom-4 right-4 py-2 px-4 rounded-full shadow-md bg-gray-900 text-white text-sm"
-            aria-label="Open history"
+            onClick={refresh}
+            style={{
+              marginTop: 12,
+              font: "500 13px/1 var(--font-sans)",
+              padding: "8px 14px",
+              borderRadius: "var(--r-full)",
+              background: "var(--ink)",
+              color: "var(--paper)",
+              border: 0,
+              cursor: "pointer",
+            }}
           >
-            History
+            retry
           </button>
-        </main>
-
-        {/* History rail (desktop) */}
-        <aside className="hidden md:block w-64 border-l border-gray-100 px-3 py-8 overflow-y-auto">
-          <HistoryRail
-            lists={listsState.lists ?? []}
-            itemsByListId={itemsByListId}
-          />
-        </aside>
-
-        {/* History drawer (mobile) */}
-        {showHistory && (
-          <div className="md:hidden fixed inset-0 z-30 flex">
-            <div
-              className="flex-1 bg-black/40"
-              onClick={() => setShowHistory(false)}
-              aria-hidden="true"
-            />
-            <aside className="w-72 bg-white border-l border-gray-100 px-3 py-6 overflow-y-auto">
-              <div className="flex items-center justify-between mb-4 px-2">
-                <h2 className="text-sm font-semibold">History</h2>
-                <button
-                  type="button"
-                  onClick={() => setShowHistory(false)}
-                  aria-label="Close history"
-                  className="text-gray-500"
-                >
-                  ✕
-                </button>
-              </div>
-              <HistoryRail
-                lists={listsState.lists ?? []}
-                itemsByListId={itemsByListId}
-              />
-            </aside>
-          </div>
-        )}
+        </div>
       </div>
-    </div>
+    );
+  }
+
+  if (lists.length === 0) {
+    return (
+      <>
+        <EmptyState onCreate={handleNew} prefs={prefs} />
+        {settingsOpen && (
+          <SettingsPanel prefs={prefs} setPrefs={setPrefs} onClose={() => setSettingsOpen(false)} />
+        )}
+      </>
+    );
+  }
+
+  if (paramListId && lists.length > 0 && !selected && !isLoading) {
+    return <Navigate to={`/lists/${lists[0].$id}`} replace />;
+  }
+
+  const editorProps = selected
+    ? {
+        list: selected,
+        items,
+        bodyType: prefs.bodyType,
+        moodTreatment: prefs.moodTreatment,
+        onTitleChange: (v) => updateList({ title: v }),
+        onMoodChange: (v) => updateList({ mood: v }),
+        onNoteChange: (v) => updateList({ note: v }),
+        onAddItem: addItem,
+        onUpdateItem: updateItem,
+        onRemoveItem: removeItem,
+      }
+    : null;
+
+  const layoutProps = {
+    lists,
+    itemsByListId,
+    selectedId,
+    onSelect: handleSelect,
+    onNew: handleNew,
+    onShowStats: handleShowStats,
+    onLogout: handleLogout,
+    onOpenSettings: () => setSettingsOpen(true),
+    editorProps,
+  };
+
+  const Layout =
+    prefs.layout === "desk"
+      ? LayoutDesk
+      : prefs.layout === "almanac"
+        ? LayoutAlmanac
+        : LayoutLibrary;
+
+  return (
+    <>
+      <Layout {...layoutProps} />
+      {settingsOpen && (
+        <SettingsPanel
+          prefs={prefs}
+          setPrefs={setPrefs}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
+    </>
   );
 };
 

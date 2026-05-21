@@ -56,117 +56,6 @@ export const useUser = () => {
   return [state, dispatch];
 };
 
-// ── all user's lists (history) ──────────────────────────────────────────
-export const useLists = (userId) => {
-  const [state, dispatch] = useReducer(fetchReducer("lists"), {
-    isLoading: false,
-    isError: false,
-    lists: [],
-  });
-  const [bump, setBump] = useState(0);
-  const refresh = useCallback(() => setBump((n) => n + 1), []);
-
-  useEffect(() => {
-    if (!userId) return;
-    let cancelled = false;
-    (async () => {
-      dispatch({ type: FetchState.FETCH_INIT });
-      try {
-        const docs = await api.listAllListsForUser(userId);
-        if (!cancelled)
-          dispatch({ type: FetchState.FETCH_SUCCESS, payload: docs });
-      } catch (e) {
-        if (!cancelled) dispatch({ type: FetchState.FETCH_FAILURE });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, bump]);
-
-  return [state, refresh];
-};
-
-// ── single list + its items ─────────────────────────────────────────────
-export const useList = (listId) => {
-  const [state, setState] = useState({
-    isLoading: false,
-    isError: false,
-    list: null,
-    items: [],
-  });
-  const [bump, setBump] = useState(0);
-  const refresh = useCallback(() => setBump((n) => n + 1), []);
-
-  useEffect(() => {
-    if (!listId) {
-      setState({ isLoading: false, isError: false, list: null, items: [] });
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      setState((s) => ({ ...s, isLoading: true, isError: false }));
-      try {
-        const [list, items] = await Promise.all([
-          api.getList(listId),
-          api.listItems(listId),
-        ]);
-        if (cancelled) return;
-        setState({
-          isLoading: false,
-          isError: false,
-          list,
-          items: items.documents,
-        });
-      } catch {
-        if (!cancelled)
-          setState((s) => ({ ...s, isLoading: false, isError: true }));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [listId, bump]);
-
-  return [state, refresh];
-};
-
-// ── newest list (for "current list" convenience) ────────────────────────
-export const useCurrentList = (userId) => {
-  const [state, setState] = useState({
-    isLoading: true,
-    isError: false,
-    currentListId: null,
-  });
-  const [bump, setBump] = useState(0);
-  const refresh = useCallback(() => setBump((n) => n + 1), []);
-
-  useEffect(() => {
-    if (!userId) return;
-    let cancelled = false;
-    (async () => {
-      setState((s) => ({ ...s, isLoading: true, isError: false }));
-      try {
-        const page = await api.listLists(userId, { limit: 1 });
-        if (cancelled) return;
-        setState({
-          isLoading: false,
-          isError: false,
-          currentListId: page.documents[0]?.$id ?? null,
-        });
-      } catch {
-        if (!cancelled)
-          setState((s) => ({ ...s, isLoading: false, isError: true }));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, bump]);
-
-  return [state, refresh];
-};
-
 // ── analytics source: every list + item for the user ────────────────────
 export const useStats = (userId) => {
   const [state, setState] = useState({
@@ -175,6 +64,8 @@ export const useStats = (userId) => {
     lists: [],
     items: [],
   });
+  const [bump, setBump] = useState(0);
+  const refresh = useCallback(() => setBump((n) => n + 1), []);
 
   useEffect(() => {
     if (!userId) return;
@@ -196,7 +87,54 @@ export const useStats = (userId) => {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, bump]);
 
-  return [state];
+  return [state, refresh];
+};
+
+// ── dashboard source: lists + items grouped by listId ───────────────────
+// One fetch powers both the active editor and the past-list cards' counts
+// and previews, so we don't N+1 items per past card.
+export const useDashboard = (userId) => {
+  const [state, setState] = useState({
+    isLoading: true,
+    isError: false,
+    lists: [],
+    itemsByListId: {},
+  });
+  const [bump, setBump] = useState(0);
+  const refresh = useCallback(() => setBump((n) => n + 1), []);
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    (async () => {
+      setState((s) => ({ ...s, isLoading: true, isError: false }));
+      try {
+        const [lists, items] = await Promise.all([
+          api.listAllListsForUser(userId),
+          api.listAllItemsForUser(userId),
+        ]);
+        if (cancelled) return;
+        const itemsByListId = {};
+        for (const it of items) {
+          if (!itemsByListId[it.listId]) itemsByListId[it.listId] = [];
+          itemsByListId[it.listId].push(it);
+        }
+        // Sort items inside each list by position (ascending).
+        Object.values(itemsByListId).forEach((arr) =>
+          arr.sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
+        );
+        setState({ isLoading: false, isError: false, lists, itemsByListId });
+      } catch {
+        if (!cancelled)
+          setState((s) => ({ ...s, isLoading: false, isError: true }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, bump]);
+
+  return [state, refresh];
 };

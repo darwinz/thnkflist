@@ -1,45 +1,14 @@
 import { useState } from "react";
 import api from "../../api/api";
 import { FetchState } from "../../hooks";
-
-const GoogleButton = ({ label }) => {
-  const handleClick = () => api.createOAuth2Session("google");
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-lg border border-gray-300 bg-white text-gray-800 font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-200"
-    >
-      <svg aria-hidden="true" viewBox="0 0 24 24" className="w-5 h-5">
-        <path
-          fill="#4285F4"
-          d="M23.49 12.27c0-.79-.07-1.54-.2-2.27H12v4.51h6.47a5.53 5.53 0 0 1-2.4 3.63v3h3.88c2.27-2.09 3.54-5.17 3.54-8.87z"
-        />
-        <path
-          fill="#34A853"
-          d="M12 24c3.24 0 5.95-1.08 7.94-2.91l-3.88-3c-1.08.72-2.45 1.16-4.06 1.16-3.12 0-5.77-2.11-6.72-4.95H1.27v3.1A12 12 0 0 0 12 24z"
-        />
-        <path
-          fill="#FBBC05"
-          d="M5.28 14.3a7.19 7.19 0 0 1 0-4.6V6.6H1.27a12 12 0 0 0 0 10.8l4.01-3.1z"
-        />
-        <path
-          fill="#EA4335"
-          d="M12 4.77c1.76 0 3.34.6 4.59 1.8l3.44-3.44A12 12 0 0 0 12 0 12 12 0 0 0 1.27 6.6l4.01 3.1C6.23 6.88 8.88 4.77 12 4.77z"
-        />
-      </svg>
-      <span>{label}</span>
-    </button>
-  );
-};
-
-const Divider = () => (
-  <div className="flex items-center gap-3 my-6" role="separator">
-    <span className="flex-1 h-px bg-gray-200" />
-    <span className="text-xs uppercase tracking-wide text-gray-400">or</span>
-    <span className="flex-1 h-px bg-gray-200" />
-  </div>
-);
+import Btn from "../../design/Btn";
+import {
+  Divider,
+  FieldLabel,
+  GoogleButton,
+  Shell,
+  TextField,
+} from "./Login";
 
 const SignUp = ({ setRegister, dispatch }) => {
   const [name, setName] = useState("");
@@ -63,69 +32,101 @@ const SignUp = ({ setRegister, dispatch }) => {
   };
 
   return (
-    <section className="container h-screen mx-auto flex">
-      <div className="flex-grow flex flex-col max-w-xl justify-center p-6">
-        <h1 className="text-6xl font-bold">Sign up</h1>
-        <p className="mt-4">
-          Already have an account?{" "}
-          <span
-            className="cursor-pointer underline"
-            onClick={() => setRegister(false)}
-          >
-            Log in
-          </span>
-        </p>
-        {error && (
-          <div className="mt-4 p-4 bg-red-100 text-red-700 rounded">
-            {error}
-          </div>
-        )}
+    <Shell>
+      <h1
+        style={{
+          font: "300 36px/1 var(--font-serif)",
+          letterSpacing: "-0.02em",
+          color: "var(--ink)",
+          margin: 0,
+        }}
+      >
+        begin
+        <span style={{ fontStyle: "italic", color: "var(--ink-soft)" }}>.</span>
+      </h1>
+      <p
+        style={{
+          font: "400 14px/1.5 var(--font-sans)",
+          color: "var(--ink-soft)",
+          marginTop: 8,
+        }}
+      >
+        already have an account?{" "}
+        <button
+          type="button"
+          onClick={() => setRegister(false)}
+          style={{
+            background: "transparent",
+            border: 0,
+            padding: 0,
+            color: "var(--ink)",
+            textDecoration: "underline",
+            cursor: "pointer",
+            font: "inherit",
+          }}
+        >
+          log in
+        </button>
+      </p>
 
-        <div className="mt-6">
-          <GoogleButton label="Sign up with Google" />
+      {error && (
+        <div
+          style={{
+            marginTop: 18,
+            padding: "10px 14px",
+            border: "1px solid #C77670",
+            borderRadius: "var(--r-md)",
+            background: "color-mix(in oklab, #C77670 15%, var(--paper))",
+            color: "var(--ink)",
+            font: "400 13px/1.5 var(--font-sans)",
+          }}
+        >
+          {error}
         </div>
+      )}
 
-        <Divider />
-
-        <form onSubmit={handleSignup}>
-          <label className="block"> Name</label>
-          <input
-            className="w-full p-4 placeholder-gray-400 text-gray-700 bg-white text-lg border-0 border-b-2 border-gray-400 focus:ring-0 focus:border-gray-900"
-            type="text"
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-
-          <label className="block mt-6"> Email</label>
-          <input
-            className="w-full p-4 placeholder-gray-400 text-gray-700 bg-white text-lg border-0 border-b-2 border-gray-400 focus:ring-0 focus:border-gray-900"
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <label className="block mt-6"> Password</label>
-          <input
-            className="w-full p-4 placeholder-gray-400 text-gray-700 bg-white text-lg border-0 border-b-2 border-gray-400 focus:ring-0 focus:border-gray-900"
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-
-          <div className="mt-6">
-            <button
-              type="submit"
-              disabled={!name || !email || !password}
-              className="mx-auto mt-4 py-4 px-16 font-semibold rounded-lg shadow-md bg-gray-900 text-white border hover:border-gray-900 hover:text-gray-900 hover:bg-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Sign up
-            </button>
-          </div>
-        </form>
+      <div style={{ marginTop: 22 }}>
+        <GoogleButton label="sign up with google" />
       </div>
-    </section>
+
+      <Divider />
+
+      <form onSubmit={handleSignup}>
+        <FieldLabel htmlFor="signup-name">name</FieldLabel>
+        <TextField
+          id="signup-name"
+          type="text"
+          value={name}
+          onChange={setName}
+          autoComplete="name"
+        />
+        <FieldLabel htmlFor="signup-email">email</FieldLabel>
+        <TextField
+          id="signup-email"
+          type="email"
+          value={email}
+          onChange={setEmail}
+          autoComplete="email"
+        />
+        <FieldLabel htmlFor="signup-password">password</FieldLabel>
+        <TextField
+          id="signup-password"
+          type="password"
+          value={password}
+          onChange={setPassword}
+          autoComplete="new-password"
+        />
+        <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-end" }}>
+          <Btn
+            type="submit"
+            kind="primary"
+            disabled={!name || !email || !password}
+          >
+            create account
+          </Btn>
+        </div>
+      </form>
+    </Shell>
   );
 };
 

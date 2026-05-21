@@ -51,19 +51,6 @@ const api = {
     api.provider().account.deleteSession("current"),
 
   // ── lists ─────────────────────────────────────────────────────────────
-  listLists: (userId, { limit = 25, cursor } = {}) => {
-    const queries = [
-      Query.equal("userId", userId),
-      Query.orderDesc("$createdAt"),
-      Query.limit(limit),
-    ];
-    if (cursor) queries.push(Query.cursorAfter(cursor));
-    return api.provider().databases.listDocuments(DB(), LISTS(), queries);
-  },
-
-  getList: (listId) =>
-    api.provider().databases.getDocument(DB(), LISTS(), listId),
-
   createList: (userId, { title, note, mood } = {}) => {
     const data = {
       userId,
@@ -103,15 +90,6 @@ const api = {
   },
 
   // ── items ─────────────────────────────────────────────────────────────
-  listItems: (listId) =>
-    api
-      .provider()
-      .databases.listDocuments(DB(), ITEMS(), [
-        Query.equal("listId", listId),
-        Query.orderAsc("position"),
-        Query.limit(100),
-      ]),
-
   createItem: async (userId, listId, content) => {
     const existing = await api
       .provider()
