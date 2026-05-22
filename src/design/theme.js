@@ -93,7 +93,7 @@ export const DARK_PALETTES = {
 
 const DEFAULTS = {
   layout: "library",
-  palette: "paper",
+  palette: "inkblot",
   dark: false,
   bodyType: "serif",
   moodTreatment: "chip",

@@ -8,15 +8,16 @@
    ───────────────────────────────────────────────────────────────────────── */
 
 :root {
-  /* Paper palette (default light) */
-  --paper: #F6F1E4;
-  --paper-deep: #EDE5D1;
-  --paper-edge: #DFD4B8;
-  --ink: #2A2620;
-  --ink-soft: #5C544A;
-  --ink-mute: #8B8275;
-  --accent: #6E8268;
-  --accent-soft: #DDE3D4;
+  /* Inkblot palette (default light) — cool cream paper, near-black ink,
+     monochrome ink-colored accent. Editorial print feel. */
+  --paper: #F8F6F1;
+  --paper-deep: #EBE7DC;
+  --paper-edge: #D9D3C2;
+  --ink: #16140F;
+  --ink-soft: #3F3B33;
+  --ink-mute: #807A6D;
+  --accent: #16140F;
+  --accent-soft: #E7E2D2;
 
   /* Spacing scale (4px grid) */
   --s-1: 4px;

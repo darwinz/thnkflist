@@ -169,27 +169,42 @@ const LayoutLibrary = ({
         >
           Filter by mood
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {MOODS.map((m) => (
             <button
               key={m.id}
               type="button"
               onClick={() => setMoodFilter(moodFilter === m.id ? null : m.id)}
+              onMouseEnter={(e) => {
+                if (moodFilter !== m.id) e.currentTarget.style.transform = "scale(1.08)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "scale(1)";
+              }}
               title={m.name}
               aria-label={`Filter by ${m.name}`}
               style={{
-                width: 22,
-                height: 22,
+                width: 26,
+                height: 26,
                 borderRadius: "var(--r-full)",
                 background: m.color,
                 border:
                   moodFilter === m.id ? "2px solid var(--ink)" : "2px solid transparent",
                 cursor: "pointer",
                 padding: 0,
-                opacity: moodFilter && moodFilter !== m.id ? 0.4 : 1,
-                transition: "opacity .15s, border-color .15s",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#fff",
+                fontSize: 13,
+                lineHeight: 1,
+                textShadow: `0 1px 1px ${m.color}aa`,
+                opacity: moodFilter && moodFilter !== m.id ? 0.45 : 1,
+                transition: "opacity .15s, border-color .15s, transform .15s",
               }}
-            />
+            >
+              {m.glyph}
+            </button>
           ))}
         </div>
       </div>
