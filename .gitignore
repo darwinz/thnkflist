@@ -121,3 +121,7 @@ tags
 # Local-only tooling state (Claude Code settings, playwright-cli snapshots)
 .claude/
 .playwright-cli/
+
+# Appwrite → Supabase migration snapshots (raw data, never commit)
+backups/
+.env*.local
