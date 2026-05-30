@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- The Petal — brand mark. Clay (#C68C72) drop with a faint paper-colored
+       vein highlight at low opacity so it cleanly disappears at favicon sizes. -->
+  <path d="M 60 16 C 84 36, 92 60, 84 84 C 76 100, 60 104, 48 96 C 32 88, 24 68, 36 44 C 44 28, 52 20, 60 16 Z" fill="#C68C72"/>
+  <path d="M 56 32 C 60 48, 60 68, 56 84" stroke="#F8F6F1" stroke-opacity="0.35" stroke-width="2" stroke-linecap="round" fill="none"/>
+</svg>
